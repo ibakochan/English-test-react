@@ -120,7 +120,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'englishgamesreac$default',
         'USER': 'englishgamesreac',
-        'PASSWORD': 'ibaru12345',
+        'PASSWORD': '*****',
         'HOST': 'englishgamesreact.mysql.pythonanywhere-services.com',
          'OPTIONS': {
             'init_command': "SET sql_mode='STRICT_TRANS_TABLES'",
