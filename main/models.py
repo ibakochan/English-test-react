@@ -4,27 +4,43 @@ from django.utils import timezone
 from django.contrib.auth.hashers import make_password, check_password
 
 class School(models.Model):
-    name = models.CharField(max_length=200, unique=True)
-    hashed_password = models.CharField(max_length=200)
+    school_name = models.CharField(max_length=200, unique=True)
+    school_password = models.CharField(max_length=200)
     school_picture = models.BinaryField(null=True, editable=True)
     school_content_type = models.CharField(max_length=256, null=True, help_text='The MIMEType of the file')
 
     def set_password(self, raw_password):
-        self.hashed_password = make_password(raw_password)
+        self.school_password = make_password(raw_password)
 
     def check_password(self, raw_password):
-        return check_password(raw_password, self.hashed_password)
+        return check_password(raw_password, self.school_password)
 
     def __str__(self):
-        return self.name
+        return self.school_name
+
+class Teacher(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    school = models.ForeignKey(School, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return self.user.username
+
+class Student(models.Model):
+    user = models.OneToOneField(CustomUser, on_delete=models.CASCADE)
+    student_number = models.CharField(max_length=20, null=True)
+
+    def __str__(self):
+        return self.user.username
 
 class Classroom(models.Model):
-    teacher = models.CharField(max_length=200, default=None)
     name = models.CharField(max_length=200, unique=True)
     hashed_password = models.CharField(max_length=200)
     school = models.ForeignKey(School, on_delete=models.CASCADE, null=True)
     classroom_picture = models.BinaryField(null=True, editable=True)
     classroom_content_type = models.CharField(max_length=256, null=True, help_text='The MIMEType of the file')
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, null=True, blank=True, related_name='classrooms')
+    students = models.ManyToManyField(Student, blank=True, related_name='classrooms')
+
 
     def set_password(self, raw_password):
         self.hashed_password = make_password(raw_password)
@@ -66,11 +82,7 @@ class Option(models.Model):
     def __str__(self):
         return self.name
 
-    def save(self, *args, **kwargs):
-        if not self.pk:  # If the object is being created
-            super().save(*args, **kwargs)  # Save the object to generate the pk
-            self.name = f"{self.name}{self.pk}"  # Update the name with the pk
-        super().save(*args, **kwargs)
+
 
 
 class UserTestSubmission(models.Model):

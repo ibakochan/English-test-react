@@ -1,0 +1,184 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const UserTestRecords = () => {
+  const [tests, setTests] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [filteredSessions, setFilteredSessions] = useState([]);
+  const [sessionDetails, setSessionDetails] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [activeTestId, setActiveTestId] = useState(null);
+  const [activeSessionId, setActiveSessionId] = useState(null);
+  const [showTests, setShowTests] = useState(false);
+
+  const fetchTests = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const testsResponse = await axios.get('/api/tests/');
+      console.log('Fetched tests:', testsResponse.data);
+      setTests(testsResponse.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching tests:', error);
+      setError('Failed to fetch tests.');
+      setLoading(false);
+    }
+  };
+
+  const fetchSessions = async (testId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const sessionsResponse = await axios.get(`/api/only-sessions/by-test/${testId}/`);
+      console.log('Fetched sessions:', sessionsResponse.data);
+      setSessions(sessionsResponse.data);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+      setError('Failed to fetch sessions.');
+      setLoading(false);
+    }
+  };
+
+  const fetchSessionDetails = async (sessionId) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await axios.get(`/api/sessions/${sessionId}/`);
+      console.log('Fetched session details:', response.data);
+      setSessionDetails(prevDetails => ({
+        ...prevDetails,
+        [sessionId]: response.data,
+      }));
+      setLoading(false);
+    } catch (error) {
+      console.error(`Error fetching session details for ID ${sessionId}:`, error);
+      setError(`Failed to fetch session details for ID ${sessionId}.`);
+      setLoading(false);
+    }
+  };
+
+  const toggleTestDetails = (testId) => {
+    if (activeTestId === testId) {
+      setActiveTestId(null);
+      setFilteredSessions([]);
+    } else {
+      setActiveTestId(testId);
+      fetchSessions(testId); // Move the fetchSessions call here
+    }
+  };
+
+  const toggleSessionDetails = async (sessionId) => {
+    if (activeSessionId === sessionId) {
+      setActiveSessionId(null);
+    } else {
+      setActiveSessionId(sessionId);
+      await fetchSessionDetails(sessionId);
+    }
+  };
+
+  const formatTimestamp = (timestamp) => {
+    const date = new Date(timestamp);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+  const renderAudio = (question) => {
+    if (question.question_sound) {
+      return <audio controls src={question.question_sound} />;
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    fetchTests(); // Move the fetchTests call here
+  }, []);
+
+  useEffect(() => {
+    if (activeTestId !== null) {
+      setFilteredSessions(sessions);
+    }
+  }, [activeTestId, sessions]);
+
+  return (
+    <div>
+      <button
+        className="btn btn-primary mb-3"
+        onClick={() => setShowTests(!showTests)}
+      >
+        {showTests ? 'Hide Test Records' : 'Show Test Records'}
+      </button>
+      {loading && <p>Loading...</p>}
+      {error && <p>{error}</p>}
+      {showTests && (
+        <>
+          <h2>Test Records</h2>
+          <ul>
+            {tests.map(test => (
+              <div key={test.id}>
+                <button
+                  className={`btn btn-success mb-3 toggle-test-btn${activeTestId === test.id ? ' active' : ''}`}
+                  onClick={() => toggleTestDetails(test.id)}
+                >
+                  {test.name}
+                </button>
+                {activeTestId === test.id && (
+                  <div className="test-details">
+                    {filteredSessions.map(session => (
+                      <div key={session.id}>
+                        <button
+                          className={`btn btn-info mb-3 toggle-session-btn${activeSessionId === session.id ? ' active' : ''}`}
+                          onClick={() => toggleSessionDetails(session.id)}
+                        >
+                          {session.timestamp ? formatTimestamp(session.timestamp) : `Session ${session.id}`}
+                        </button>
+                        {activeSessionId === session.id && sessionDetails && sessionDetails[session.id] && (
+                          <div className="record-details">
+                            {sessionDetails[session.id].test_records.map(record => (
+                              <div key={record.id} style={{ border: '3px solid black', padding: '10px', marginBottom: '10px' }}>
+                                {record.question_name && (
+                                  <h4>Question: {record.question_name}</h4>
+                                )}
+                                {record.question && (
+                                  <>
+                                    {renderAudio(record.question)}
+                                    {record.question.options.map(option => (
+                                      option.is_correct && (
+                                        <p key={option.id}>Correct option: {option.name}</p>
+                                      )
+                                    ))}
+                                  </>
+                                )}
+                                {record.selected_option_name && (
+                                  <p>Selected Option: {record.selected_option_name}</p>
+                                )}
+                                {record.total_recorded_score === 0 ? (
+                                  <p>Recorded Score: {record.recorded_score}</p>
+                                ) : (
+                                  <h2>Total Score: {record.total_recorded_score}</h2>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+};
+
+export default UserTestRecords;

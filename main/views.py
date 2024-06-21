@@ -2,38 +2,181 @@ from django.shortcuts import render
 from django.views import View
 from accounts.models import CustomUser, Sessions
 from django.http import JsonResponse
-from django import forms
-from accounts.forms import CustomUserCreationForm
-from .models import School, Classroom, Test, Question, Option, UserTestSubmission, TestRecords
+from accounts.forms import StudentSignUpForm, TeacherSignUpForm
+from .models import School, Classroom, Test, Question, Option, UserTestSubmission, TestRecords, Teacher, Student
 from django.urls import reverse
 from django.http import HttpResponse
-from django.template.loader import render_to_string
 from django.contrib.auth import login
-from django.db.models import Count
 from random import shuffle
-from django.core.serializers import serialize
-from django.core.serializers.json import DjangoJSONEncoder
+from rest_framework import viewsets
+from django.utils import timezone
+from rest_framework.decorators import action
+from django.contrib import messages
 import json
-import base64
-from django.db.models.query import QuerySet
-from rest_framework import serializers
-from .serializers import (SchoolSerializer, ClassroomSerializer, TestSerializer, QuestionSerializer, OptionSerializer,
-                          TestRecordsSerializer, SessionsSerializer, CustomUserSerializer, ConnectTestFormSerializer)
-from rest_framework.renderers import JSONRenderer
-from rest_framework.views import APIView
+
+
+
+
+from .serializers import (SchoolSerializer, ClassroomSerializer, QuestionSerializer, TestQuestionSerializer, OptionSerializer, TeacherSerializer, StudentSerializer,
+                          TestRecordsSerializer, SessionsSerializer, OnlySessionsSerializer, CustomUserSerializer, ConnectTestFormSerializer, TestByClassroomSerializer)
+
 from rest_framework.response import Response
 
 from django.contrib.auth.hashers import check_password
-from .forms import SchoolCreateForm, ClassroomCreateForm, TestCreateForm, QuestionCreateForm, OptionCreateForm, TestSubmissionForm, ConnectTestForm
+from .forms import SchoolCreateForm, ClassroomCreateForm, TestCreateForm, QuestionCreateForm, OptionCreateForm, TestSubmissionForm, ConnectTestForm, ClassroomJoinForm
 from .owner import OwnerDeleteView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import get_object_or_404, redirect
+from rest_framework.permissions import IsAuthenticated
+
+
+class TestRecordsViewSet(viewsets.ModelViewSet):
+    queryset = TestRecords.objects.all()
+    serializer_class = TestRecordsSerializer
+
+class SessionsViewSet(viewsets.ModelViewSet):
+    queryset = Sessions.objects.all()
+    serializer_class = SessionsSerializer
+
+class OnlySessionsViewSet(viewsets.ModelViewSet):
+    queryset = Sessions.objects.all()
+    serializer_class = OnlySessionsSerializer
+
+    @action(detail=False, methods=['get'], url_path='by-test/(?P<test_id>[^/.]+)')
+    def get_sessions_by_test(self, request, test_id=None):
+        # Find all session IDs related to the given test ID
+        session_ids = TestRecords.objects.filter(test_id=test_id).values_list('account_sessions_id', flat=True).distinct()
+
+        # Fetch the sessions using these IDs
+        sessions = Sessions.objects.filter(id__in=session_ids)
+
+        # Serialize the sessions
+        serializer = OnlySessionsSerializer(sessions, many=True)
+
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['get'], url_path='by-test-and-user/(?P<test_id>[^/.]+)/(?P<user_id>[^/.]+)')
+    def get_sessions_by_test_and_user(self, request, test_id=None, user_id=None):
+        # Find all session IDs related to the given test ID and user ID
+        session_ids = TestRecords.objects.filter(test_id=test_id, user_id=user_id).values_list('account_sessions_id', flat=True).distinct()
+
+        # Fetch the sessions using these IDs
+        sessions = Sessions.objects.filter(id__in=session_ids)
+
+        # Serialize the sessions
+        serializer = OnlySessionsSerializer(sessions, many=True)
+
+        return Response(serializer.data)
+
+class TeacherViewSet(viewsets.ModelViewSet):
+    queryset = Teacher.objects.all()
+    serializer_class = TeacherSerializer
+
+class StudentViewSet(viewsets.ModelViewSet):
+    queryset = Student.objects.all()
+    serializer_class = StudentSerializer
+
+class QuestionViewSet(viewsets.ModelViewSet):
+    queryset = Question.objects.all()
+    serializer_class = QuestionSerializer
 
 
 
+class TestQuestionViewSet(viewsets.ModelViewSet):
+    queryset = Question.objects.all()
+    serializer_class = TestQuestionSerializer
+
+    @action(detail=False, methods=['get'], url_path='by-test/(?P<test_id>[^/.]+)')
+    def get_questions_by_test(self, request, test_id=None):
+        # Fetch questions related to the given test ID
+        questions = Question.objects.filter(test__id=test_id)
+        questions = list(questions)  # Convert queryset to list for randomization
+        shuffle(questions)
+        # Serialize the questions
+        serializer = TestQuestionSerializer(questions, many=True)
+
+        return Response(serializer.data)
+
+class OptionViewSet(viewsets.ModelViewSet):
+    queryset = Option.objects.all()
+    serializer_class = OptionSerializer
+
+    @action(detail=False, methods=['get'], url_path='by-question/(?P<question_id>[^/.]+)')
+    def get_options_by_question(self, request, question_id=None):
+        # Fetch options related to the given question ID
+        options = Option.objects.filter(question__id=question_id)
+
+        # Serialize the options
+        serializer = OptionSerializer(options, many=True)
+
+        return Response(serializer.data)
+
+class NameIdTestViewSet(viewsets.ModelViewSet):
+    queryset = Test.objects.all()
+    serializer_class = TestByClassroomSerializer
+
+    @action(detail=False, methods=['get'], url_path='by-classroom/(?P<classroom_id>[^/.]+)')
+    def by_classroom(self, request, classroom_id=None):
+        tests = self.queryset.filter(classroom__id=classroom_id)
+        serializer = self.get_serializer(tests, many=True)
+        return Response(serializer.data)
 
 
 
+class ClassroomViewSet(viewsets.ModelViewSet):
+    queryset = Classroom.objects.all()
+    serializer_class = ClassroomSerializer
+
+    @action(detail=False, methods=['get'], url_path='my-classroom')
+    def get_my_classroom(self, request):
+        user = request.user
+        try:
+            student = Student.objects.get(user=user)
+            classrooms = Classroom.objects.filter(students=student)
+            if classrooms.exists():
+                serializer = self.get_serializer(classrooms, many=True)
+                return Response(serializer.data)
+            else:
+                return Response({"detail": "Student is not enrolled in any classroom"}, status=404)
+        except Student.DoesNotExist:
+            try:
+                teacher = Teacher.objects.get(user=user)
+                classrooms = Classroom.objects.filter(teacher=teacher)
+                if classrooms.exists():
+                    serializer = self.get_serializer(classrooms, many=True)
+                    return Response(serializer.data)
+                else:
+                    return Response({"detail": "Teacher is not assigned to any classroom"}, status=404)
+            except Teacher.DoesNotExist:
+                return Response({"detail": "User is not associated with any student or teacher"}, status=404)
+
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerializer
+
+
+class SchoolViewSet(viewsets.ModelViewSet):
+    queryset = School.objects.all()
+    serializer_class = SchoolSerializer
+
+class CustomUserViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerializer
+
+    @action(detail=False, methods=['get'], url_path='by-classroom/(?P<classroom_id>[^/.]+)')
+    def get_users_by_classroom(self, request, classroom_id=None):
+        # Check if a Student object exists for the current user
+        if Student.objects.filter(user=request.user).exists():
+            # If it does, filter the queryset to include only the current user
+            users = CustomUser.objects.filter(id=request.user.id)
+        else:
+            # If not, return all users
+            students = Student.objects.filter(classrooms__id=classroom_id)
+            user_ids = students.values_list('user_id', flat=True)
+            users = CustomUser.objects.filter(id__in=user_ids)
+
+        serializer = CustomUserSerializer(users, many=True)
+        return Response(serializer.data)
 
 
 
@@ -55,6 +198,29 @@ class TestClassroomView(View):
         if connect_form.is_valid():
             connect_form.save()  # save() handles the ManyToManyField correctly
             return redirect('main:profile')
+
+class ClassroomJoinView(View):
+
+    def post(self, request):
+        form = ClassroomJoinForm(request.POST)
+        if form.is_valid():
+            classroom_name = form.cleaned_data.get('classroom_name')
+            classroom_password = form.cleaned_data.get('classroom_password')
+
+            try:
+                classroom = Classroom.objects.get(name=classroom_name)
+                if classroom.hashed_password == classroom_password:
+                    student = request.user.student
+                    classroom.students.add(student)
+                    messages.success(request, 'Successfully joined the classroom!')
+                else:
+                    messages.error(request, 'Invalid classroom password.')
+            except Classroom.DoesNotExist:
+                messages.error(request, 'Classroom not found.')
+        else:
+            messages.error(request, 'Form is not valid.')
+
+        return redirect('main:profile')
 
 
 class ProfilePageView(LoginRequiredMixin, View):
@@ -78,12 +244,16 @@ class ProfilePageView(LoginRequiredMixin, View):
 
         tests = Test.objects.all()
         session_tests = Test.objects.filter(pk__in=test_ids)
+        join_form = None
+        if Student.objects.filter(user=request.user).exists():
+            join_form = ClassroomJoinForm()
 
 
 
         connect_form = ConnectTestForm()
 
         return render(request, self.template_name, {
+                'join_form': join_form,
                 'users': CustomUser.objects.all(),
                 'schools': School.objects.all(),
                 'classrooms': classrooms,
@@ -95,7 +265,6 @@ class ProfilePageView(LoginRequiredMixin, View):
                 'question_form': QuestionCreateForm(),
                 'option_form': OptionCreateForm(),
                 'classroom_form': ClassroomCreateForm(),
-                'signup_form': CustomUserCreationForm(),
                 'test_records': test_records,
                 'account_sessions': account_sessions,
                 'session_tests': session_tests,
@@ -136,10 +305,7 @@ class ProfilePageView(LoginRequiredMixin, View):
             option_name = remove_digits_from_end(option.name, pk_length)
             modified_options.append({'option': option, 'option_name': option_name})
 
-        signup_form = CustomUserCreationForm(request.POST)
-        if signup_form.is_valid():
-            user = signup_form.save()
-            login(request, user)
+
 
 
         return render(request, self.template_name, {
@@ -160,7 +326,6 @@ class ProfilePageView(LoginRequiredMixin, View):
             'classroom_password': classroom_password,
             'tests': tests,
             'test_submission_form': test_submission_form,
-            'signup_form': signup_form,
             'user_test_submissions': user_test_submissions,
             'connect_form': connect_form,
             'test_records': test_records,
@@ -169,13 +334,76 @@ class ProfilePageView(LoginRequiredMixin, View):
         })
 
 
-class SignUpView(View):
+class StudentSignUpView(View):
+    template_name = 'accounts/student_signup.html'
+
+    def get(self, request):
+        form = StudentSignUpForm()
+        return render(request, self.template_name, {'form': form})
+
     def post(self, request):
-        signup_form = CustomUserCreationForm(request.POST)
-        if signup_form.is_valid():
-            user = signup_form.save()
+        form = StudentSignUpForm(request.POST)
+
+        username = request.POST.get('username')
+        if CustomUser.objects.filter(username=username).exists():
+            error_message = "A user with that username already exists."
+            return render(request, self.template_name, {'form': form, 'error_message': error_message})
+
+        if form.is_valid():
+            user = form.save()
             login(request, user)
             return redirect('/')
+        else:
+            error_message = "Passwords don't match."
+            return render(request, self.template_name, {'form': form, 'error_message': error_message})
+        return render(request, self.template_name, {'form': form})
+
+class TeacherSignUpView(View):
+    template_name = 'accounts/teacher_signup.html'
+
+    def get(self, request):
+        # Retrieve the school instance corresponding to the provided pk
+
+        # Pass the school instance to the form during instantiation
+        form = TeacherSignUpForm()
+
+        return render(request, self.template_name, {'form': form})
+
+    def post(self, request):
+        form = TeacherSignUpForm(request.POST)
+
+        username = request.POST.get('username')
+        if CustomUser.objects.filter(username=username).exists():
+            error_message = "A user with that username already exists."
+            return render(request, self.template_name, {'form': form, 'error_message': error_message})
+
+
+        if form.is_valid():
+            school_name = form.cleaned_data.get('school_name')
+            school_password = form.cleaned_data.get('school_password')
+
+            # Retrieve the school instance corresponding to the provided name and password
+            try:
+                school = School.objects.get(school_name=school_name, school_password=school_password)
+            except School.DoesNotExist:
+                error_message = "Invalid school name or password"
+                return render(request, self.template_name, {'form': form, 'error_message': error_message})
+
+            # Save the user
+            user = form.save()
+
+            # Create the Teacher object and associate it with the user and school
+            Teacher.objects.create(user=user, school=school)
+
+            # Log in the user and redirect to the home page
+            login(request, user)
+            return redirect('/')
+
+        else:
+            error_message = "Passwords don't match."
+            return render(request, self.template_name, {'form': form, 'error_message': error_message})
+
+        return render(request, self.template_name, {'form': form})
 
 
 
@@ -210,7 +438,7 @@ class ClassroomCreateView(LoginRequiredMixin, View):
         if form.is_valid():
             classroom = form.save(commit=False)
             classroom.school = school
-            classroom.teacher=request.user
+            classroom.teacher=request.user.teacher
             classroom.save()
             response_data = {'success': True, 'school_pk': school.pk}
             return JsonResponse(response_data)
@@ -364,39 +592,31 @@ def option_stream_file(request, pk):
     return response
 
 
+class TestAnswerView(View):
+    def post(self, request, test_id, question_id):
+        json_data = json.loads(request.body)
+        selected_option = json_data['selected_option']
 
-class TestAnswerView(LoginRequiredMixin, View):
+        test = Test.objects.get(pk=test_id)
+        question = Question.objects.get(pk=question_id, test=test)
+        selected_option = Option.objects.get(pk=selected_option, question=question)
+        correct_option = Option.objects.get(question=question, is_correct=True)
 
-    def post(self, request, pk):
-        form = TestSubmissionForm(request.POST)
+        score = 1 if selected_option.is_correct else 0
 
-        if form.is_valid():
-            submission = form.save(commit=False)
-            submission.user = request.user
-            submission.test_id = pk
-            submission.question=submission.selected_option.question
+        UserTestSubmission.objects.create(
+            user=request.user,
+            test=test,
+            question=question,
+            selected_option=selected_option,
+            score=score,
+        )
 
-
-            score = 0
-            if submission.selected_option.is_correct:
-                score += 1
-                submission.score = score
-                message = 'Correct answer'
-            else:
-                correct_option = Option.objects.filter(question=submission.selected_option.question, is_correct=True).first()
-                num_digits = len(str(submission.selected_option.pk))
-                # Remove the same number of letters from the end of the option name
-                modified_option_name = correct_option.name[:-num_digits]
-                message = f'あまい！ Correct answer = {modified_option_name}'
-
-            submission.save()
-
-
-            response_data = {'success': True, 'message': message}
-            return JsonResponse(response_data)
+        if selected_option.is_correct:
+            message = 'Correct answer'
         else:
-            response_data = {'success': False, 'errors': form.errors}
-            return JsonResponse(response_data, status=400)
+            message = f'AMAI!\nCorrect option: {correct_option.name}'
+        return JsonResponse({'success': True, 'message': message})
 
 
 class TestRecordView(View):
@@ -407,8 +627,9 @@ class TestRecordView(View):
 
         TestRecordView.activation_counter += 1
         group_id = TestRecordView.activation_counter
+        current_time = timezone.now().strftime('%Y-%m-%d %H:%M')
 
-        account_sessions = Sessions.objects.create(number=test.pk, user=request.user)
+        account_sessions = Sessions.objects.create(number=test.pk, user=request.user, session_name=test.name, timestamp=current_time)
 
         # Retrieve all UserTestSubmission instances related to the request user and the specified test
         user_test_submissions = UserTestSubmission.objects.filter(user=request.user, test=test)

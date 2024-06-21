@@ -3,45 +3,60 @@
 <html lang="en-JP">
 <link href="{% static 'main/test.css' %}" rel="stylesheet">
 <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
-<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/js/all.min.js" crossorigin="anonymous"></script>
-<script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+  <script>
+    // Define a global variable for the static file URL
+    window.staticFileUrl = "{% static 'main/WhatsApp画像 2024-02-14 13.27.37_9343389c.jpg' %}";
+  </script>
+    <script>
+        window.correctAudioUrls = [
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (17).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (18).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (19).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (20).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (21).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (22).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (23).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (24).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (25).mp3' %}"
+        ];
+        window.wrongAudioUrls = [
+            "{% static 'main/soundfiles/sound13.mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (27).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (28).mp3' %}",
+            "{% static 'main/soundfiles/Record (online-voice-recorder.com) (29).mp3' %}"
+        ];
+    </script>
 
 <body style="background-image: url('{% static 'main/WhatsApp画像 2024-02-14 13.27.37_9343389c.jpg' %}'); background-size: 100% 100%; background-position: center; background-repeat: no-repeat; margin: 0; padding: 0;">
-<div class="container-fluid" id="app">
-    <div v-for="test in tests" :key="test.id">
-    {{ test }}
-    </div>
+<div class="container-fluid" style="padding: 0;">
+    <div id="tests" class="col-12" style="width: 100%; padding: 0; margin: 0;"></div>
     <div class="row">
-        <div class="col-md-6" id="hiding">
+        <div>
         <div class="card mb-4">
         <div class="card-body">
             <div style="display: flex; justify-content: space-between; align-items: center;">
-            <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
             <a {% if user.is_authenticated %} href="{% url 'accounts:logout' %}?next={% url 'accounts:login' %}?next={% url 'main:profile' %}"
             {% else %} href="{% url 'accounts:login' %}?next={% url 'main:profile' %}"
             {% endif %} class="w-50 pl-3 pb-4 text-white">
+            <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
             {% if user.is_authenticated %}
             Logout
             {% else %}
             Login
             {% endif %}
-            </a></button>
-            <button id="toggleFormBtn" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;" data-toggle="collapse" data-target="#signupForm">Create a new account!</button>
-            <div class="collapse" id="signupForm">
-                <form method="post">
-                    {% csrf_token %}
-                    {% for field in signup_form %}
-                        <label class="text-dark font-weight-bold" for="{{ field.id_for_label }}">{{ field.label }}</label>
-                        {{ field }}
-                {% endfor %}
-                <div class="text-center mt-3">
-                    <button type="submit" class="btn btn-success btn-lg" style="width: 200px; border: 5px solid black;">Create!</button>
-                </div>
-                </form>
+            </button></a>
             </div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <a href="{% url 'main:student_signup' %}">
+            <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
+            Student signup!
+            </button>
+            </a>
+            <a href="{% url 'main:teacher_signup' %}">
+            <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
+            Teacher signup!
+            </button>
+            </a>
             </div>
             <button id="toggleFormBtn" class="btn btn-info mb-3" style="border: 5px solid black;" data-toggle="collapse" data-target="#enterForm">Enter schools and classrooms!</button>
             <div class="collapse" id="enterForm">
@@ -69,60 +84,23 @@
                 <button type="submit" class="btn btn-primary" style="width: 200px; border: 5px solid black;">Enter</button>
             </form>
             </div>
-
-            <button id="toggleFormBtnAll" class="btn btn-primary mb-3" style="border: 5px solid black;" data-toggle="collapse" data-target="#alltestrecords">Test records!</button>
-            <div class="collapse" id="alltestrecords">
-            {% for test in session_tests %}
-            <button id="toggleFormBtn{{ test.id }}" class="btn btn-success mb-3 toggle-test-btn" style="border: 5px solid black;" data-toggle="collapse" data-target="#testrecords{{ test.id }}">{{ test }}</button>
-            <div class="collapse test-collapse" id="testrecords{{ test.id }}" data-loaded="false">
-                {% for session in account_sessions %}
-                {% if session.number == test.id %}
-                <button id="toggleFormBtn" class="btn btn-info mb-3 session-test-btn" style="border: 5px solid black;" data-toggle="collapse" data-target="#sessions{{ session.id }}{{ test.id }}">{{ session.timestamp }}</button>
-                <div class="collapse" id="sessions{{ session.id }}{{ test.id }}">
-                    {% for record in test_records %}
-                    {% if record.account_sessions.id == session.id %}
-                    <div class="box" style="border: 2px solid black; padding: 10px; margin-bottom: 10px;">
-                    {% if record.total_recorded_score == 0 %}
-                    <p>Question Name: {{ record.question_name }}</p>
-                    {% for option in options %}
-                    {% if option.question.id == record.question.id %}
-                    {% if option.name == record.selected_option_name %}
-                    {% if option.question.question_sound %}
-                    <button class="play-audio-btn" data-audio-url="{% url 'main:question_sound' option.question.id %}">Play Audio</button>
-                    <audio controls style="display:none;">
-                        <source src="" type="audio/mpeg">
-                        Your browser does not support the audio element.
-                    </audio>
-                    {% endif %}
-                    {% if option.question.question_picture %}<img style="width:90px;height:90px;margin-top: 8px; border:3px solid black;" src="{% url 'main:question_picture' option.question.id %}" alt="Question">{% endif %}
-                    <p>Recorded Score: {{ record.recorded_score }}
-                    {% if record.recorded_score == 0 %}<span class="icon cross-mark text-danger" style="font-size: 40px">&#x2717;</span>
-                    {% else %}
-                    <span class="icon check-mark text-success" style="font-size: 40px">&#x2713;</span>
-                    {% endif %}
-                    </p>
-                    <p>Selected Option Name: {{ record.selected_option_name|remove_letters_from_end:option.pk }}</p>
-                    {% endif %}
-                    {% if option.is_correct %}
-                            <p>Correct answer: {{ option.name|remove_letters_from_end:option.pk }}</p>
-                    {% endif %}
-                    {% endif %}
-                    {% endfor %}
-                    {% endif %}
-                    {% if record.total_recorded_score != 0 %}
-                    <h1>Your total score!: {{ record.total_recorded_score|remove_numbers_from_end:2 }}/{{ test.total_questions }}</h1>
-                    {% endif %}
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-                {% endfor %}
+            <div id="user-test-records"></div>
+            <div id="messages">
+              {% if messages %}
+                <ul class="messages">
+                  {% for message in messages %}
+                    <li{% if message.tags %} class="{{ message.tags }}"{% endif %}>{{ message }}</li>
+                  {% endfor %}
+                </ul>
+              {% endif %}
             </div>
-            {% endfor %}
-            </div>
-
-
+            {% if join_form %}
+            <form id="join-classroom-form" method="post" action="{% url 'main:join_classroom' %}">
+                {% csrf_token %}
+                {{ join_form.as_p }}
+                <button type="submit" class="btn btn-primary">Join</button>
+            </form>
+            {% endif %}
 
 
 
@@ -141,7 +119,7 @@
 
             <div class="container mt-5" id="classroomList">
                 {% for school in schools %}
-                    {% if school.name == school_name and school.hashed_password == school_password %}
+                    {% if school.school_name == school_name and school.school_password == school_password %}
                         {% if classroom_name == '' and classroom_password == '' %}
                         <div>
                                 <h5 class="card-title">Create Classroom</h5>
@@ -159,7 +137,7 @@
                         {% endif %}
 
                         {% for classroom in classrooms %}
-                            {% if classroom.school.name == school_name and classroom.school.hashed_password == school_password %}
+                            {% if classroom.school.school_name == school_name and classroom.school.school_password == school_password %}
                             {% if classroom.name == classroom_name and classroom.hashed_password == classroom_password %}
                             <button id="toggleFormBtn" class="btn btn-warning mb-3" style="width: 200px; border: 5px solid black;" data-toggle="collapse" data-target="#testcreateForm">Create a new test!</button>
                             <div class="collapse" id="testcreateForm">
@@ -255,7 +233,7 @@
                                     {% for option in options %}
                                     {% if option.question == question %}
                                     <div class="option_deletion" style="display: flex; align-items: center;">
-                                    <button class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">{{ option.name|remove_letters_from_end:option.pk }}</button>
+                                    <button class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">{{ option.name }}</button>
                                     <form method="post" action="{% url 'main:option_delete' option.pk %}" class="option-delete-form">
                                     {% csrf_token %}
                                     <button type="submit" class="btn btn-danger" style="width: 100px; margin-left: 50px; border: 5px solid black; margin-top: auto;">Delete</button>
@@ -278,133 +256,35 @@
                     {% endif %}
                 {% endfor %}
             </div>
-        </div>
-        </div>
-        </div>
-
-
-        <div class="col-md-6" id="change">
-            <div class="quiz-container d-flex justify-content-center align-items-center" id="quiz">
-                <div class="quiz-header">
-                    {% for classroom in classrooms %}
-                    {% if classroom_name == classroom.name and classroom_password == classroom.hashed_password %}
-                    <h2>You are in the Classroom: {{ classroom.name }}</h2>
-                    <h2>
-                    {% if classroom.classroom_picture %}<img style="width:100px;height:100px;margin-top: 8px; border:3px solid black;" src="{% url 'main:classroom_picture' classroom.id %}" alt="Question">{% endif %}
-                    <div>
-                    {% for test in tests %}
-                    {% if classroom in test.classroom.all %}
-                    <h2>
-                    <button id="toggleFormBtn{{ test.pk }}" class="btn btn-dark do-test" style="width: 400px; height: 120px;" data-toggle="collapse" data-target="#test{{ test.pk }}Content">
-                        {{ test.name }}
-                        {% if test.test_picture %}
-                            <img style="width:100px;height:100px;margin-top: 8px; border:3px solid black;" src="{% url 'main:test_picture' test.id %}" alt="Test">
-                        {% endif %}
-                        <form id="deleteSubmissionsForm" method="post" action="{% url 'main:submissions_delete' %}">
-                            {% csrf_token %}
-                        </form>
-                    </button>
-                    <div class="collapse" id="test{{ test.pk }}Content">
-                    <div class="test-container">
-                        <h3>{{ test.name }}</h3>
-                        <form id="record-form" class="record-form" method="post" action="{% url 'main:test_record' test.pk %}">
-                            {% csrf_token %}
-                            <input type="hidden" name="test_pk" value="{{ test.pk }}">
-                            <button type="submit" class="record-message btn btn-primary" data-test-id="{{ test.pk }}Record Answers">Record answers!</button>
-                        </form>
-                    </div>
-                        <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#myModal" style="display: none;">
-                          Launch modal
-                        </button>
-                        <div class="message"></div>
-                        <div id="completion-message"></div>
-                        {% for question in questions %}
-                        {% if question.test == test %}
-                        <div class="question" id="question{{ question.id }}" style="display: {% if forloop.first %}block{% else %}none{% endif %}">
-                            <div class="hide-button">
-                            <h2>{{ question }}{% if question.question_picture %}<img style="width:100px;height:100px;margin-top: 8px; border:3px solid black;" src="{% url 'main:question_picture' question.id %}" alt="Question">{% endif %}</h2>
-                            {% if question.question_sound %}
-                            <audio controls>
-                                <source src="{% url 'main:question_sound' question.id %}" type="audio/mpeg">
-                                Your browser does not support the audio element.
-                            </audio>
-                            {% endif %}
-                            <ul class="list-unstyled">
-                                <form class="test-form" method="post" action="{% url 'main:test_submit' test.pk %}" onsubmit="submitForm({{ question.id }})">
-                                    {% csrf_token %}
-                                    <div class="container-fluid">
-                                    <div class="row">
-                                    {% for option in options %}
-                                    {% if option.question.pk == question.pk %}
-                                    <div class="col-md-6">
-                                            {% for field in test_submission_form %}
-                                            {% for choice in field %}
-                                            {% if choice.choice_label == option.name %}
-                                            <label for="{{ option.pk }}" style="font-size: 50px;"><input type="radio" name="selected_option" value="{{ option.pk }}" id="{{ option.pk }}" style="width: 20px; height: 20px;">
-                                            {{ option.name|remove_letters_from_end:option.pk }}
-                                            </label>
-                                             {% if option.option_picture %}
-                                                <img style="width:100px;height:100px;margin-top: 8px; border:3px solid black;" src="{% url 'main:option_picture' option.id %}" alt="Option">
-                                            {% endif %}
-                                            {% endif %}
-                                            {% endfor %}
-                                            {% endfor %}
-                                    </div>
-                                    {% endif %}
-                                    {% endfor %}
-                                    </div>
-                                    </div>
-                                    <button id="submit-btn" type="submit" onclick="submitForm({{ question.id }})">Submit answer for {{ question.name }}</button>
-                                </form>
-                            </ul>
-                            </div>
-                        </div>
-                        {% endif %}
-                        {% endfor %}
-                    </div>
-                    </h2>
-                    {% endif %}
-                    {% endfor %}
-                    </div>
-                    {% endif %}
-                    {% endfor %}
-                    </h2>
-                </div>
+        {% if request.user.is_superuser %}
+        <form class="createClassroomForm" method="post" action="{% url 'main:school_create' %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            {% for field in school_form %}
+            <div class="form-group">
+            <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                  {{ field }}
             </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-success" style="width: 200px; border: 5px solid black;">Create school</button>
+        </form>
+        {% endif %}
+        </div>
+        </div>
         </div>
     </div>
 </div>
 </div>
-
+</body>
+<script type="module" src="{% static 'my-vite-app/dist/assets/index-DUSbfVJG.js' %}"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js"></script>
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-script src="{% static 'main/test_submit.js'%}?v=9"></script
-script src="{% static 'main/next_questions.js'%}?v=1">
 
 
 
-<script>
-    new Vue({
-        el: '#app',
-        data: {
-            tests: [] // Initialize with dynamic data from Django
-            // Add more data properties as needed
-        },
-        created() {
-            // Fetch dynamic data from your Django backend API
-            this.fetchTests();
-        },
-        methods: {
-            fetchTests() {
-                // Make an AJAX request to fetch tests from your Django backend
-                // Update this.tests with the response data
-            }
-            // Add more methods as needed
-        }
-    });
-</script>
+
+
 
 
 

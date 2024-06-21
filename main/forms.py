@@ -6,7 +6,17 @@ from main.humanize import naturalsize
 from django.forms import DateInput
 from django.core.exceptions import ValidationError
 
-
+class ClassroomJoinForm(forms.Form):
+    classroom_name = forms.CharField(
+        label="教室名",
+        required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'}),
+    )
+    classroom_password = forms.CharField(
+        label="教室のパスワード",
+        required=True,
+        widget=forms.PasswordInput(attrs={'class': 'form-control'}),
+    )
 
 class ConnectTestForm(forms.ModelForm):
 
@@ -53,7 +63,7 @@ class SchoolCreateForm(forms.ModelForm):
 
     class Meta:
         model = School
-        fields = ['name', 'hashed_password', 'school_picture']
+        fields = ['school_name', 'school_password', 'school_picture']
 
         #Using widgets again for some style.
     widgets = {

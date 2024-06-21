@@ -20,8 +20,8 @@
 <br>
 <br>
 <form method="post">
-{% csrf_token %}
-<div class="container">
+  {% csrf_token %}
+  <div class="container">
     <div class="row justify-content-center">
       <div class="col-md-8">
         <div class="card-group mb-0">
@@ -46,6 +46,25 @@
               </div>
             </div>
           </div>
+
+          <!-- New card for signup buttons -->
+          <div class="card p-4" style="border: 1px solid black;">
+            <div class="card-body text-center">
+            　<h3>アカウント登録：</h3>
+              <a href="{% url 'main:student_signup' %}">
+                <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
+                  Student signup!
+                </button>
+              </a>
+              <a href="{% url 'main:teacher_signup' %}">
+                <button type="button" class="btn btn-success mb-3" style="width: 200px; border: 5px solid black;">
+                  Teacher signup!
+                </button>
+              </a>
+            </div>
+          </div>
+          <!-- End of new card -->
+
         </div>
       </div>
     </div>
